@@ -1,31 +1,50 @@
-#!/usr/bin/env python3
-"""Sum up the world's news of Tuesday 17 November 2026 in one image.
+"""Entry runner for the make.fun news-image-20261117 contest.
 
-Entry program for the make.fun news-image-20261117 competition.
-The entry image is committed in this repository as entry.png (a
-newspaper front page composed from an original illustration and the
-day's headlines). This program copies it, byte for byte, to
-/output/entry.png, creating /output if needed, so every run produces
-the same image.
+The artwork summing up Tuesday 17 November 2026 ships in this
+repository as entry.png, stored next to this script. Running the
+script delivers an exact copy of that artwork to /output/entry.png,
+so the front page the judges see is always the identical file.
 """
-import shutil
-from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
+import hashlib
+import os
+import sys
 
-
-def main():
-    src = HERE / "entry.png"
-    if not src.is_file():
-        raise FileNotFoundError(f"entry image not found: {src}")
-    dst = Path("/output/entry.png")
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(src, dst)
-    size = src.stat().st_size
-    if dst.stat().st_size != size:
-        raise IOError(f"copy size mismatch: wrote {dst.stat().st_size} of {size} bytes")
-    print(f"Wrote {dst} ({size} bytes, size verified).")
+SOURCE_NAME = "entry.png"
+TARGET_DIR = "/output"
+TARGET_NAME = "entry.png"
 
 
-if __name__ == "__main__":
-    main()
+def load_artwork():
+    folder = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(folder, SOURCE_NAME)
+    if not os.path.isfile(path):
+        sys.exit("missing entry artwork: " + path)
+    with open(path, "rb") as handle:
+        return handle.read()
+
+
+def deliver(payload):
+    os.makedirs(TARGET_DIR, exist_ok=True)
+    target = os.path.join(TARGET_DIR, TARGET_NAME)
+    with open(target, "wb") as handle:
+        handle.write(payload)
+    return target
+
+
+def run():
+    payload = load_artwork()
+    if len(payload) == 0:
+        sys.exit("entry artwork is empty, nothing to deliver")
+    target = deliver(payload)
+    if os.path.getsize(target) != len(payload):
+        sys.exit("verification failed: delivered size does not match")
+    digest = hashlib.sha256(payload).hexdigest()
+    with open(target, "rb") as handle:
+        written = hashlib.sha256(handle.read()).hexdigest()
+    if written != digest:
+        sys.exit("verification failed: the delivered copy differs")
+    print("delivered %s (%d bytes, sha256 %s)" % (target, len(payload), digest))
+
+
+run()
